@@ -50,6 +50,35 @@ export function buildCompletions(
   return [];
 }
 
+/**
+ * The substring of `line` that the completions returned by buildCompletions are
+ * meant to replace. Node's readline uses this as its `completeOn` value: it
+ * appends the diff between the completions' common prefix and this token. It
+ * must therefore be the *token* being completed (the text after "@", or the
+ * command / argument word) — not the whole line — otherwise readline mangles or
+ * drops the inserted completion. Kept in lockstep with the cases above.
+ */
+export function completionToken(line: string): string {
+  const atIndex = line.lastIndexOf("@");
+  if (atIndex !== -1) {
+    return line.slice(atIndex + 1);
+  }
+
+  if (line.startsWith("/")) {
+    const parts = line.slice(1).split(/\s+/);
+
+    if (parts.length <= 1 && !line.endsWith(" ")) {
+      return parts[0] ?? "";
+    }
+
+    if (parts.length >= 2) {
+      return parts[parts.length - 1];
+    }
+  }
+
+  return line;
+}
+
 export class CliApp {
   private readonly agent: CliChat;
   private resources: string[] = [];
@@ -82,7 +111,7 @@ export class CliApp {
 
   private completer(line: string): [string[], string] {
     const completions = buildCompletions(line, this.prompts, this.resources);
-    return [completions, line];
+    return [completions, completionToken(line)];
   }
 
   async run(): Promise<void> {
