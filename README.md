@@ -244,7 +244,7 @@ diagrams above.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/ANI-IN/mcp-chat-cli.git
+git clone https://github.com/smakubi/mcp-chat-cli.git
 cd mcp-chat-cli
 
 # 2. Install dependencies

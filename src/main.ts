@@ -24,27 +24,31 @@ async function main(): Promise<void> {
   const claudeService = new Claude(claudeModel);
 
   // Resolve the bundled DocumentMCP server relative to this entry file so it
-  // works whether running compiled (dist/main.js -> dist/mcpServer.js) or via
-  // tsx (src/main.ts -> src/mcpServer.js, which tsx resolves to .ts).
+  // works whether running compiled (dist/main.js -> dist/mcpServer.js, run with
+  // plain node) or via tsx (src/main.ts -> src/mcpServer.ts, run with the tsx
+  // loader). We match the child's extension + runner to how *this* file is
+  // running: if the entry is a .ts file, we're under tsx.
   const here = dirname(fileURLToPath(import.meta.url));
-  const serverScript = join(here, "mcpServer.js");
+  const runningFromSource = import.meta.url.endsWith(".ts");
+  const serverScript = join(here, runningFromSource ? "mcpServer.ts" : "mcpServer.js");
+
+  // A .ts server must be launched through the tsx loader; a compiled .js server
+  // runs on plain node. `spawnArgsFor` builds the right command for either.
+  const spawnArgsFor = (script: string) =>
+    script.endsWith(".ts")
+      ? { command: process.execPath, args: ["--import", "tsx", script] }
+      : { command: process.execPath, args: [script] };
 
   const serverScripts = argv.slice(2);
   const clients: Record<string, MCPClient> = {};
 
-  const docClient = new MCPClient({
-    command: process.execPath,
-    args: [serverScript],
-  });
+  const docClient = new MCPClient(spawnArgsFor(serverScript));
   await docClient.connect();
   clients["doc_client"] = docClient;
 
   for (let i = 0; i < serverScripts.length; i++) {
     const script = serverScripts[i];
-    const client = new MCPClient({
-      command: process.execPath,
-      args: [script],
-    });
+    const client = new MCPClient(spawnArgsFor(script));
     await client.connect();
     clients[`client_${i}_${script}`] = client;
   }
